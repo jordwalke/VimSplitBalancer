@@ -76,35 +76,38 @@ endfu
 
 " Works when the sidebar is open
 function! s:EnsureNERDWidth()
-  "echo "ENSURING ".winnr()
-  if winnr() == 1
-    " close enough
-    if (exists("b:NERDTreeType"))
-      set winwidth=1
-      "execute "NERDTreeClose"
-      wincmd =
-      "execute "NERDTree"
-      execute "vertical resize ".g:NERDSideBarSize
-      wincmd =
+  let shouldResize = exists("g:VimSplitBalancerSupress") && g:VimSplitBalancerSupress != 1 || !exists("g:VimSplitBalancerSupress")
+  if shouldResize
+    "echo "ENSURING ".winnr()
+    if winnr() == 1
+      " close enough
+      if (exists("b:NERDTreeType"))
+        set winwidth=1
+        "execute "NERDTreeClose"
+        wincmd =
+        "execute "NERDTree"
+        execute "vertical resize ".g:NERDSideBarSize
+        wincmd =
+      else
+        call s:AutoResizeWindow(1)
+        wincmd =
+      endif
     else
       call s:AutoResizeWindow(1)
-      wincmd =
-    endif
-  else
-    call s:AutoResizeWindow(1)
-    " Jump to window one, see if it's a NERDTree then resize it if so.
-    wincmd t
-    let sideBarIsOpen = exists("b:NERDTreeType") ? 1 : 0
-    wincmd p  "then jump back to where we were
-
-    " Now we know if its open
-    if sideBarIsOpen
+      " Jump to window one, see if it's a NERDTree then resize it if so.
       wincmd t
-      execute "vertical resize ".g:NERDSideBarSize
-      wincmd p
-      wincmd =
-    else
-      wincmd =
+      let sideBarIsOpen = exists("b:NERDTreeType") ? 1 : 0
+      wincmd p  "then jump back to where we were
+
+      " Now we know if its open
+      if sideBarIsOpen
+        wincmd t
+        execute "vertical resize ".g:NERDSideBarSize
+        wincmd p
+        wincmd =
+      else
+        wincmd =
+      endif
     endif
   endif
 endfunction
