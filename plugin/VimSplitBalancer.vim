@@ -128,6 +128,8 @@ if has("gui_running")
   " Restore it.
   autocmd VimResized * call <SID>EnsureNERDWidth()
   autocmd BufEnter   * call <SID>EnsureNERDWidth()
-  autocmd WinEnter   * call <SID>EnsureEqual()
+  " Not sure why we needed this `WinEnter` hook, and it messed up
+  " the special "HUD" style location list layers in VimBox.
+  " autocmd WinEnter   * call <SID>EnsureEqual()
   autocmd TabEnter   * call <SID>EnsureNERDWidth()
 endif
