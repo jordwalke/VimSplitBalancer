@@ -16,9 +16,10 @@ if &cp || exists( 'g:vim_split_balancer' )
     finish
 endif
 
-let g:NERDSideBarSize=35
-let g:NERDSideBarSplitMax=110
-let g:NERDSideBarSplitMin=70
+" For some reason, NERDTree doesn't actually respect its width setting.
+let g:VimSplitBalancerMaxSideBar=50
+let g:VimSplitBalancerMaxWidth=110
+let g:VimSplitBalancerMinWidth=70
 let g:vim_split_balancer = 1
 
 
@@ -37,99 +38,59 @@ function s:Max(num1, num2)
   return a:num2
 endfunction
 
-" FROM: http://stackoverflow.com/questions/9148919/how-to-resize-a-window-to-fit-taking-into-account-only-logical-lines
-fu! s:Sum(vals)
-    let acc = 0
-    for val in a:vals
-        let acc += val
-    endfor
-    return acc
-  endfu
-fu! s:LogicalLineCounts()
-    if &wrap
-        let width = winwidth(0)
-        let line_counts = map(range(1, line('$')), "foldclosed(v:val)==v:val?1:(virtcol([v:val, '$'])/width)+1")
-    else
-        let line_counts = [line('$')]
-    endif
-    return line_counts
-endfu
-fu! s:LinesHiddenByFoldsCount()
-    let lines = range(1, line('$'))
-    call filter(lines, "foldclosed(v:val) > 0 && foldclosed(v:val) != v:val")
-    return len(lines)
-endfu 
-
-fu! s:AutoResizeWindow(vert)
-    if a:vert
-        let longest = max(map(range(1, line('$')), "virtcol([v:val, '$'])"))
-        exec "set winwidth=" . s:Max(g:NERDSideBarSplitMin, s:Min(longest, g:NERDSideBarSplitMax))
-    else
-        let line_counts  = s:LogicalLineCounts()
-        let folded_lines = s:LinesHiddenByFoldsCount()
-        let lines        = s:Sum(line_counts) - folded_lines
-        exec 'resize ' . lines
-        1
-    endif
-endfu
-
-
-" Works when the sidebar is open
+" - winwidth setting is the *minimum* window width for the focused window at
+"   the time of invoking `wincmd =`, or just focusing a window. All others get
+"   space distributed, unless they have set winfixwidth/winfixheight.
+"   `winwidth` is a global setting.  If this were a per-window setting, it
+"   would make this plugin a lot simpler.
+" - winfixwidth/winfixheight make a window immune to being resized when
+"   another window is focused or does `wincmd =`.
+" - winwidth(0) function is (confusingly) the actual width of the current
+"   window. Not the minimum width when `wincmd =` is called .
+" - NERDTree should have winfixwidth set.
 function! s:EnsureNERDWidth()
   let shouldResize = exists("g:VimSplitBalancerSupress") && g:VimSplitBalancerSupress != 1 || !exists("g:VimSplitBalancerSupress")
   if shouldResize
-    "echo "ENSURING ".winnr()
-    if winnr() == 1
-      " close enough
-      if (exists("b:NERDTreeType"))
-        set winwidth=1
-        "execute "NERDTreeClose"
-        wincmd =
-        "execute "NERDTree"
-        execute "vertical resize ".g:NERDSideBarSize
-        wincmd =
-      else
-        call s:AutoResizeWindow(1)
-        wincmd =
-      endif
-    else
-      call s:AutoResizeWindow(1)
-      " Jump to window one, see if it's a NERDTree then resize it if so.
-      wincmd t
-      let sideBarIsOpen = exists("b:NERDTreeType") ? 1 : 0
-      wincmd p  "then jump back to where we were
-
-      " Now we know if its open
-      if sideBarIsOpen
-        wincmd t
-        execute "vertical resize ".g:NERDSideBarSize
-        wincmd p
+      " If the window (such as NERDTree)is marked as immune to being resized
+      " due to winwidth when other windows are focused (or when `wincmd =` is
+      " invoked) that doesn't make it immune to resizing when that window does
+      " `wincmd =` itself, or is focused itself. To simulate that, we
+      " temporarily set that global `winwidth` to the current width.
+      if &winfixwidth || exists("b:NERDTreeType")
+        echomsg "In FIX WIDTH"
+        let &winwidth = s:Min(winwidth(0), g:VimSplitBalancerMaxSideBar)
+        if winwidth(0) != &winwidth
+          execute "vertical resize " . &winwidth
+        endif
         wincmd =
       else
+        let longest = max(map(range(1, line('$')), "virtcol([v:val, '$'])"))
+        " We set the global setting when entering any window to make it seem
+        " as if winwidth was a perf-window setting.
+        let &winwidth = s:Max(g:VimSplitBalancerMinWidth, s:Min(longest, g:VimSplitBalancerMaxWidth))
         wincmd =
       endif
-    endif
+      " Now, set it back to 1, so that it effectively disables resizing when
+      " focusing/jumping around windows. Think of this plugin as a way to
+      " always have winwidth = 1, but then selectively set it to the "right"
+      " width only when g:VimSplitBalancerSupress is 0, and when not focusing
+      " on the NERDTree etc.
+      let &winwidth = 1
   endif
 endfunction
 
-function! s:EnsureEqual()
-  wincmd =
-endfunction
-
-if has("gui_running")
-  " Listens for WinResize events and store the last observed NERDTree width (win
-  " 1) in b:nerdWith - then restore that instead of 40!
-  " See help: 'Moving cursor to other windows			*window-move-cursor*'
-  let g:NERDTreeWinSize=35
-  " Dillgently remember the sidebar size
-  " autocmd TabLeave   * call <SID>CaptureNERDWidth()
-  " autocmd WinLeave   * call <SID>CaptureNERDWidth()
-
-  " Restore it.
-  autocmd VimResized * call <SID>EnsureNERDWidth()
-  autocmd BufEnter   * call <SID>EnsureNERDWidth()
-  " Not sure why we needed this `WinEnter` hook, and it messed up
-  " the special "HUD" style location list layers in VimBox.
-  " autocmd WinEnter   * call <SID>EnsureEqual()
-  autocmd TabEnter   * call <SID>EnsureNERDWidth()
+if exists('g:NERDTreeWinSize')
+else
+  let g:NERDTreeWinSize=40
 endif
+" Dillgently remember the sidebar size
+" autocmd TabLeave   * call <SID>CaptureNERDWidth()
+" autocmd WinLeave   * call <SID>CaptureNERDWidth()
+
+" Restore it.
+autocmd VimResized * call <SID>EnsureNERDWidth()
+autocmd BufEnter   * call <SID>EnsureNERDWidth()
+" Not sure why we needed this `WinEnter` hook, and it messed up
+" the special "HUD" style location list layers in VimBox.
+autocmd WinEnter   * call <SID>EnsureNERDWidth()
+autocmd TabEnter   * call <SID>EnsureNERDWidth()
