@@ -57,7 +57,6 @@ function! s:EnsureNERDWidth()
       " `wincmd =` itself, or is focused itself. To simulate that, we
       " temporarily set that global `winwidth` to the current width.
       if &winfixwidth || exists("b:NERDTreeType")
-        echomsg "In FIX WIDTH"
         let &winwidth = s:Min(winwidth(0), g:VimSplitBalancerMaxSideBar)
         if winwidth(0) != &winwidth
           execute "vertical resize " . &winwidth
