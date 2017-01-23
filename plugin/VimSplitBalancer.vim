@@ -88,7 +88,7 @@ endif
 
 " Restore it.
 autocmd VimResized * call <SID>EnsureNERDWidth()
-autocmd BufEnter   * call <SID>EnsureNERDWidth()
+" autocmd BufEnter   * call <SID>EnsureNERDWidth()
 " Not sure why we needed this `WinEnter` hook, and it messed up
 " the special "HUD" style location list layers in VimBox.
 autocmd WinEnter   * call <SID>EnsureNERDWidth()
